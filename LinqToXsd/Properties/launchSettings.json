@@ -1,7 +1,8 @@
 {
   "profiles": {
     "LinqToXsd": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "gen -a C:\\Users\\mmiftah\\source\\Projects\\LinqToXsdCore\\GeneratedSchemaLibraries\\Atom\\atom.xsd"
     },
     "EnumInvalidChars": {
       "commandName": "Project",
@@ -56,6 +57,50 @@
       "commandLineArgs": "gen \"windowsTaskSched.xsd\" -a",
       "workingDirectory": "..\\GeneratedSchemaLibraries\\Windows",
       "hotReloadEnabled": false
+    },
+    "akomantoso30": {
+      "commandName": "Project",
+      "commandLineArgs": "gen \"akomantoso30.xsd\" -a",
+      "workingDirectory": "..\\GeneratedSchemaLibraries\\AkomaNtoso",
+      "hotReloadEnabled": false
+    },
+    "StuDateTime": {
+      "commandName": "Project",
+      "commandLineArgs": "gen \"StuDateAndTime.xsd\" -a",
+      "workingDirectory": "..\\LinqToXsd.Schemas\\XsdFeatureTests\\SimpleTypeUnion",
+      "hotReloadEnabled": false
+    },
+    "OPML": {
+      "commandName": "Project",
+      "commandLineArgs": "gen . -a",
+      "workingDirectory": "C:\\Projects\\GitHub\\LinqToXsdCore\\GeneratedSchemaLibraries\\Opml"
+    },
+    "ExpressionMedia": {
+      "commandName": "Project",
+      "commandLineArgs": "gen -a .\\",
+      "workingDirectory": "..\\GeneratedSchemaLibraries\\Microsoft.Expression.Media.Catalog"
+    },
+    "SharePoint 2010": {
+      "commandName": "Project",
+      "commandLineArgs": "gen -a .\\",
+      "workingDirectory": "..\\GeneratedSchemaLibraries\\SharePoint2010"
+    },
+    "AkomaNtoso": {
+      "commandName": "Project",
+      "commandLineArgs": "gen \"akomantoso30.xsd\" -a",
+      "workingDirectory": "..\\GeneratedSchemaLibraries\\AkomaNtoso",
+      "hotReloadEnabled": false
+    },
+    "ImportsXmlNamespace": {
+      "commandName": "Project",
+      "commandLineArgs": "gen \"ImportsXmlAttributes.xsd\" -a",
+      "workingDirectory": "..\\LinqToXsd.Schemas\\XsdFeatureTests\\ImportsXmlNamespace",
+      "hotReloadEnabled": false
+    },
+    "XQueryX": {
+      "commandName": "Project",
+      "commandLineArgs": "gen -a .\\",
+      "workingDirectory": "..\\GeneratedSchemaLibraries\\XQueryX"
     }
   }
 }

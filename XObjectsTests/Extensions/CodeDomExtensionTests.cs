@@ -5,7 +5,9 @@ using System.Linq;
 using System.Xml;
 using System.Xml.Resolvers;
 using System.Xml.Schema;
+using Fasterflect;
 using NUnit.Framework;
+using Xml.Schema.Linq.CodeGen;
 using Xml.Schema.Linq.Extensions;
 
 namespace Xml.Schema.Linq.Tests.Extensions
@@ -13,6 +15,27 @@ namespace Xml.Schema.Linq.Tests.Extensions
     [TestFixture]
     public class CodeDomExtensionTests: BaseTester
     {
+        [Test]
+        public void TestIsEquivalentTypeReference()
+        {
+            var xmlSchemaElement = new XmlSchemaType() {
+                Name = "test"
+            };
+
+            var exampleClrTypeRef = new ClrTypeReference(nameof(String), typeof(string).Namespace,
+                xmlSchemaElement, false, false);
+
+            exampleClrTypeRef.SetFieldValue("clrName", "String");
+            exampleClrTypeRef.SetFieldValue("typeNs", "System");
+            exampleClrTypeRef.SetFieldValue("clrFullTypeName", typeof(string).FullName);
+
+            var codeTypeRef = new CodeTypeReference(typeof(string));
+
+            var isEquivalent = exampleClrTypeRef.IsEquivalentTypeReference(codeTypeRef);
+
+            Assert.True(isEquivalent);
+        }
+
         [Test]
         public void IsEquivalentEnumDeclarationTestTrue()
         {
@@ -82,7 +105,7 @@ namespace Xml.Schema.Linq.Tests.Extensions
             var xmlSpecXsd = @"XMLSpec\xmlspec.xsd";
             var xmlSpecXsdConfigFile = @"XMLSpec\xmlspec.xsd.config";
             var xmlSpecXsdConfig = Configuration.Load(GetFileStreamReader(xmlSpecXsdConfigFile));
-            var xmlSpecSchemaSet = Utilities.PreLoadXmlSchemas(xmlSpecXsd, Utilities.GetAssemblyFileSystem(typeof(W3C.XMLSpec.listclass).Assembly));
+            var xmlSpecSchemaSet = Utilities.GetAssemblyFileSystem(typeof(W3C.XMLSpec.listclass).Assembly).PreLoadXmlSchemas(xmlSpecXsd);
 
             Assert.IsNotNull(xmlSpecSchemaSet);
             Assert.IsTrue(xmlSpecSchemaSet.IsCompiled);

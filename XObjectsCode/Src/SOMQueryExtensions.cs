@@ -1,18 +1,20 @@
 //Copyright (c) Microsoft Corporation.  All rights reserved.
-
+#nullable enable
 using System;
-using System.Xml;
-using System.Xml.Schema;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Collections.Generic;
+using System.Xml;
+using System.Xml.Schema;
+using Xml.Schema.Linq.Extensions;
+using XObjects;
 
 namespace Xml.Schema.Linq.CodeGen
 {
     internal static class SOMQueryExtensions
     {
         //XmlSchemaType helpers
-        public static XmlSchemaContentType GetContentType(this XmlSchemaType schemaType)
+        public static XmlSchemaContentType GetContentType(this XmlSchemaType? schemaType)
         {
             if (schemaType == null)
             {
@@ -97,6 +99,13 @@ namespace Xml.Schema.Linq.CodeGen
             }
         }
 
+        public static bool IsBuiltInSimpleType(this XmlSchemaType type)
+        {
+            if (type is XmlSchemaSimpleType a) return a.IsBuiltInSimpleType();
+
+            return false;
+        }
+
         public static XmlSchemaSimpleType GetListItemType(this XmlSchemaSimpleType type)
         {
             Debug.Assert(type != null);
@@ -120,6 +129,8 @@ namespace Xml.Schema.Linq.CodeGen
 
         public static bool IsOrHasUnion(this XmlSchemaSimpleType type)
         {
+            Debug.Assert(type.Datatype != null, $"This current simpleType has no dataTyoe! Possible name: ${type.Name}");
+
             switch (type.Datatype.Variety)
             {
                 case XmlSchemaDatatypeVariety.Atomic: return false;
@@ -235,9 +246,9 @@ namespace Xml.Schema.Linq.CodeGen
         public static XmlSchemaSimpleType[] GetUnionMemberTypes(this XmlSchemaSimpleType type)
         {
             Debug.Assert(type != null);
-            Debug.Assert(type.Datatype.Variety == XmlSchemaDatatypeVariety.Union);
+            Debug.Assert(type.Datatype?.Variety == XmlSchemaDatatypeVariety.Union);
 
-            XmlSchemaSimpleTypeUnion unionContent = type.Content as XmlSchemaSimpleTypeUnion;
+            XmlSchemaSimpleTypeUnion? unionContent = type.Content as XmlSchemaSimpleTypeUnion;
 
             if (unionContent != null)
             {
@@ -250,6 +261,11 @@ namespace Xml.Schema.Linq.CodeGen
                 XmlSchemaSimpleType baseType = type.BaseXmlSchemaType as XmlSchemaSimpleType;
                 return baseType.GetUnionMemberTypes();
             }
+        }
+
+        public static XmlSchemaSimpleType[] GetUnionMemberTypes(this XmlSchemaSimpleTypeUnion? unionContent)
+        {
+            return unionContent?.BaseMemberTypes ?? [];
         }
 
         public static bool HasFacetRestrictions(this XmlSchemaSimpleType sst)
@@ -597,6 +613,32 @@ namespace Xml.Schema.Linq.CodeGen
                 default:
                     return typeCode.ToString();
             }
+        }
+
+        public static string ResolveTypeNameOrBaseTypeName(this XmlSchemaSimpleType st)
+        {
+            return st.Name.Coalesce(st.TypeCode.ToString(), st.BaseXmlSchemaType?.Name, st.BaseXmlSchemaType?.TypeCode.ToString());
+        }
+
+        public static string ResolveTypeNameOrBaseTypeNameTree(this XmlSchemaSimpleType st)
+        {
+            var possibleNameOrTypecode = st.Name.Coalesce(st.TypeCode.ToString());
+            throw new NotImplementedException();
+        }
+
+        public static string? GetFullUnionTypeName(this XmlSchemaObject schemaObject)
+        {
+            string? typeName = null;
+            // handle union of simple types.
+            if (schemaObject is XmlSchemaSimpleType simpleType && simpleType.IsOrHasUnion()) {
+                var memberTypes = simpleType.GetUnionMemberTypes();
+                Debug.Assert(memberTypes is { Length: > 0 }, nameof(memberTypes) + " != null. Incorrectly defined union type.");
+                string typesStr = string.Join("And", memberTypes.Select(o => o.Name?.ToUpperFirstInvariant()));
+                Debug.Assert(typesStr.IsNotEmpty() && typesStr != "And");
+                typeName = "unionOf" + typesStr;
+            }
+
+            return typeName;
         }
     }
 }

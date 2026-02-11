@@ -3,8 +3,9 @@
 
   <!-- Build and design defaults -->
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
     <RootNamespace>Xml.Schema.Linq</RootNamespace>
+    <!-- This is an opt-in feature of .NET SDK 10 that allows the LinqToXsd CLI tool to be packaged AOT; turned off for now as it triples the nupkg size -->
+    <!-- <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers> -->
   </PropertyGroup>
 
   <!-- Package defaults -->

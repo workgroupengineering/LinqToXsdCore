@@ -1,4 +1,7 @@
-﻿using System.CodeDom;
+﻿using System;
+using System.CodeDom;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Reflection;
 using Xml.Schema.Linq;
 
@@ -41,6 +44,34 @@ namespace XObjects
                 return GeneratedTypesVisibility.Internal;
 
             return GeneratedTypesVisibility.Public;
+        }
+
+        public static bool AddIfNotAlreadyExists<TKey, TVal>(this IDictionary<TKey, TVal> dictionary, TKey key, TVal val)
+        {
+            if (dictionary == null) throw new ArgumentNullException(nameof(dictionary));
+
+            if (dictionary is ConcurrentDictionary<TKey, TVal> concurrentDictionary) {
+                return concurrentDictionary.TryAdd(key, val);
+            }
+
+            lock (dictionary) {
+                var contains = dictionary.ContainsKey(key);
+                if (contains) return false;
+                dictionary.Add(key, val);
+                return true;
+            }
+        }
+
+        public static bool AddIfNotAlreadyExists<TVal>(this List<TVal> list, TVal val)
+        {
+            if (list == null) throw new ArgumentNullException(nameof(list));
+
+            lock (list) {
+                bool contains = list.Contains(val);
+                if (contains) return false;
+                list.Add(val);
+                return true;
+            }
         }
     }
 }

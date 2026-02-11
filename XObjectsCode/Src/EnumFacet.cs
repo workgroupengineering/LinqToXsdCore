@@ -34,6 +34,16 @@ namespace Xml.Schema.Linq.CodeGen
         private static string CreateValidIdentifier(string value)
         {
             if (string.IsNullOrEmpty(value)) return value;
+            if (NameGenerator.IsKeyword(value)) {
+                return $"@{value}";
+            }
+
+            if (value.Length == 1) {
+                char ch = value[0];
+                if (char.IsSymbol(ch) || char.IsPunctuation(ch)) {
+                    return NameGenerator.ExpandSymbolToFullWord(value[0]);
+                }
+            }
 
             var invalidChars = value
                 .GroupBy(char.GetUnicodeCategory)

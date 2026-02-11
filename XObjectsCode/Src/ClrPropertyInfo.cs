@@ -5,6 +5,7 @@ using System.CodeDom;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Xml.Schema;
 using Xml.Schema.Linq.Extensions;
 using XObjects;
@@ -27,6 +28,12 @@ namespace Xml.Schema.Linq.CodeGen
         string simpleTypeClrTypeName;
 
         ArrayList substitutionMembers;
+
+#nullable enable
+        /// <summary>
+        /// The enclosing <see cref="CodeTypeDeclaration"/> that this <see cref="ClrPropertyInfo"/> instance is a part of. 
+        /// </summary>
+        public CodeTypeDeclaration? ParentTypeDeclaration { get; set; }
 
         public ClrPropertyInfo(string propertyName, string propertyNs, string schemaName, Occurs occursInSchema, LinqToXsdSettings settings)
         {
@@ -203,22 +210,22 @@ namespace Xml.Schema.Linq.CodeGen
 
         public override bool IsSchemaList
         {
-            get { return this.typeRef.IsSchemaList; }
+            get { return (this.typeRef?.IsSchemaList).GetValueOrDefault(); }
         }
 
         public override bool IsUnion
         {
-            get { return this.typeRef.IsUnion; }
+            get { return (this.typeRef?.IsUnion).GetValueOrDefault(); }
         }
 
         public override bool IsEnum
         {
-            get { return this.typeRef.IsEnum; }
+            get { return (this.typeRef?.IsEnum).GetValueOrDefault(); }
         }
 
         public bool Validation
         {
-            get { return this.typeRef.Validate && !IsRef; }
+            get { return (this.typeRef?.Validate).GetValueOrDefault() && !IsRef; }
         }
 
         public override bool FromBaseType
@@ -359,7 +366,7 @@ namespace Xml.Schema.Linq.CodeGen
 
             this.clrTypeName = typeRef.GetClrFullTypeName(currentNamespaceScope, nameMappings, settings, out string refTypeName);
 
-            if (Validation || IsUnion)
+            if ((Validation || IsUnion) || IsEnum)
             {
                 this.simpleTypeClrTypeName = typeRef.GetSimpleTypeClrTypeDefName(currentNamespaceScope, nameMappings);
             }
@@ -383,14 +390,17 @@ namespace Xml.Schema.Linq.CodeGen
             }
         }
 
-        public override CodeMemberProperty AddToType(CodeTypeDeclaration parentTypeDecl,
+        public override CodeMemberProperty? AddToType(CodeTypeDeclaration parentTypeDecl,
             List<ClrAnnotation> annotations, GeneratedTypesVisibility visibility = GeneratedTypesVisibility.Public)
         {
+            if (parentTypeDecl == null) throw new ArgumentNullException(nameof(parentTypeDecl));
             if (!ShouldGenerate)
             {
                 return null;
             }
 
+            ParentTypeDeclaration ??= parentTypeDecl;
+            
             CreateXNameField(parentTypeDecl);
             CreateFixedDefaultValue(parentTypeDecl);
             CodeMemberProperty clrProperty = CodeDomHelper.CreateProperty(ReturnType, hasSet, visibility.ToMemberAttribute());
@@ -1164,8 +1174,8 @@ namespace Xml.Schema.Linq.CodeGen
 
         protected CodeExpression GetSimpleTypeClassExpression(bool disambiguateWhenPropertyAndTypeNameAreTheSame = false)
         {
-            Debug.Assert(this.simpleTypeClrTypeName != null);
-
+            Debug.Assert(this.simpleTypeClrTypeName.IsNotEmpty());
+            
             var areTheSameAndShouldDisambiguate = false;
             if (disambiguateWhenPropertyAndTypeNameAreTheSame) {
                 if (this.propertyName == this.simpleTypeClrTypeName) {
@@ -1173,18 +1183,46 @@ namespace Xml.Schema.Linq.CodeGen
                 }
             }
 
-            var typeName = areTheSameAndShouldDisambiguate
+            string typeName = areTheSameAndShouldDisambiguate
                 ? $"global::{this.settings.GetClrNamespace(PropertyNs)}.{this.simpleTypeClrTypeName}"
                 : this.simpleTypeClrTypeName;
+
             var codeFieldReferenceExpression = CodeDomHelper.CreateFieldReference(typeName, Constants.SimpleTypeDefInnerType);
 
             #if DEBUG
             var str = codeFieldReferenceExpression.ToCodeString();
-            Debug.Assert(str != null);
+            Debug.Assert(str.IsNotEmpty());
+            Debug.Assert(str.Contains("void.") == false, $"A void. type reference indicates that the mapping failed to generate a suitable {nameof(simpleTypeClrTypeName)} for the current {nameof(ClrPropertyInfo)}. This can happen due to the XSD type of the current property might be anonymous AND a union of multiple types. There are a few XSD type configurations that are not yet supported.");
             #endif
 
             return codeFieldReferenceExpression;
         }
+
+#if DEBUG
+        /// <summary>
+        /// unfortuntely, this is a hack to fix a regression that left the <see cref="simpleTypeClrTypeName"/> field unset for certain enums.
+        /// examples of this error occuring: 'W3C XMLSchema v1.xsd' -> schema element -> attributeFormDefault attribute of type formChoice
+        /// </summary>
+        /// <returns></returns>
+        private bool SetSimpleTypeClrNameForEnum()
+        {
+            bool wasSet = false;
+            if (this.ParentTypeDeclaration != null && this.ParentTypeDeclaration.HasParent<CodeNamespace>()) {
+                var thisNamespace = this.ParentTypeDeclaration.GetParent<CodeNamespace>();
+                if (thisNamespace is not null) {
+                    var possibleTypeValidatorClass = thisNamespace.SearchForMemberRecursively(e =>
+                        e is CodeTypeDeclaration ec && ec.Name.Contains(this.TypeReference.Name));
+
+                    if (possibleTypeValidatorClass is not null) {
+                        simpleTypeClrTypeName = possibleTypeValidatorClass.Name;
+                        wasSet = true;
+                    }
+                }
+            }
+
+            return wasSet;
+        }
+#endif
 
         public void CreateXNameField(CodeTypeDeclaration typeDecl)
         {

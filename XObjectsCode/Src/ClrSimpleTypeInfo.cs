@@ -1,8 +1,14 @@
 //Copyright (c) Microsoft Corporation.  All rights reserved.
 
-using System.Xml.Schema;
+#nullable enable
+using System;
+using System.CodeDom;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Reflection;
+using System.Xml.Schema;
+using Xml.Schema.Linq.Extensions;
+using XObjects;
 
 namespace Xml.Schema.Linq.CodeGen
 {
@@ -71,11 +77,11 @@ namespace Xml.Schema.Linq.CodeGen
             return compiledFacets;
         }
 
-        public static ClrSimpleTypeInfo CreateSimpleTypeInfo(XmlSchemaType type)
+        public static ClrSimpleTypeInfo? CreateSimpleTypeInfo(XmlSchemaType type)
         {
-            ClrSimpleTypeInfo typeInfo = null;
+            ClrSimpleTypeInfo? typeInfo = null;
 
-            Debug.Assert(type.Datatype != null);
+            Debug.Assert(type.Datatype != null, "DataType property should not be null; bad XSD perhaps?");
             switch (type.Datatype.Variety)
             {
                 case XmlSchemaDatatypeVariety.Atomic:
@@ -99,6 +105,30 @@ namespace Xml.Schema.Linq.CodeGen
             }
 
             return typeInfo;
+        }
+
+        /// <summary>
+        /// Creates a new <see cref="ClrSimpleTypeInfo"/> for a simple, local (anonymous) union type.
+        /// </summary>
+        /// <param name="simpleType"></param>
+        /// <param name="clrTypeNamespace"></param>
+        /// <returns></returns>
+        public static ClrSimpleTypeInfo CreateSimpleTypeUnionAnonymousTypeInfo(XmlSchemaSimpleType simpleType, string? clrTypeNamespace = null)
+        {
+            ClrSimpleTypeInfo? type = ClrSimpleTypeInfo.CreateSimpleTypeInfo(simpleType);
+
+            if (type is null) throw new InvalidOperationException($"Unable to create a new {nameof(ClrSimpleTypeInfo)} for the given type object.");
+
+            Debug.Assert(type is UnionSimpleTypeInfo);
+            var unionTypeInfo = type as UnionSimpleTypeInfo;
+            
+            unionTypeInfo!.clrtypeName = simpleType.GenerateAdHocNameForSimpleUnionType();
+            unionTypeInfo.IsNested = true;
+            unionTypeInfo.IsSealed = true;
+            unionTypeInfo.IsAbstract = false;
+            unionTypeInfo.clrtypeNs = clrTypeNamespace;
+
+            return unionTypeInfo;
         }
 
         public void UpdateClrTypeName(Dictionary<XmlSchemaObject, string> nameMappings,

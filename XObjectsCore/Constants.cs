@@ -1,6 +1,8 @@
 //Copyright (c) Microsoft Corporation.  All rights reserved.
 
+#pragma warning disable IDE0130
 namespace Xml.Schema.Linq.CodeGen
+#pragma warning restore IDE0130
 {
     internal static class Constants
     {
@@ -10,6 +12,8 @@ namespace Xml.Schema.Linq.CodeGen
 
         public static readonly string SystemTypeName = $"{nameof(System)}.{nameof(System.Type)}";
         public static readonly string SystemXmlLinqNamespaceQualifer = $"{nameof(System)}.{nameof(System.Xml)}.{nameof(System.Xml.Linq)}";
+
+        public const string SimpleTypeUnionOfPrefix = "SimpleUnionTypeOf";
 
         //Custom Attribute names
         public const string XElement = "XElement";

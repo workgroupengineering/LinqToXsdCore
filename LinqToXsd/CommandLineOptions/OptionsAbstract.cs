@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
@@ -33,7 +34,7 @@ namespace LinqToXsd
         /// <returns></returns>
         public virtual bool FilesWereGiven => FileSystemUtilities.HasFilePaths(FilesOrFolders);
 
-        protected List<string> filesOrFolders = new List<string>();
+        protected string[] filesOrFolders = new string[0];
 
         protected Dictionary<string, XmlReader> schemaReaders = new Dictionary<string, XmlReader>();
 
@@ -52,17 +53,16 @@ namespace LinqToXsd
                 var possibleUnparsedCommas = value
                                              .Select(v => v.Replace("\\", @"\"))
                                              .SelectMany(pf => pf.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-                                             .Select(v => v.Trim('\\', '/')); // removes trailing slashes for directories
-                filesOrFolders = possibleUnparsedCommas.ToList();
+                                             .Select(v => v.TrimEnd(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar, '\'', '"')); // removes trailing slashes for directories
+                filesOrFolders = possibleUnparsedCommas.ToArray();
             }
         }
 
         /// <summary>
         /// Resolves the file or folder paths in <see cref="FilesOrFolders"/> property as just files, filtering to only include *.xsd files under
         /// any folder paths present.
-        /// <para>Computed on every read.</para>
         /// </summary>
-        public virtual IEnumerable<string> SchemaFiles
+        public virtual List<string> SchemaFiles
         {
             get
             {

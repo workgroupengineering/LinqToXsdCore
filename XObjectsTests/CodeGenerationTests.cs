@@ -5,6 +5,7 @@ using System.IO;
 using System.IO.Abstractions;
 using System.IO.Abstractions.TestingHelpers;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 using Microsoft.CodeAnalysis;
@@ -12,7 +13,9 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MoreLinq;
 using NUnit.Framework;
+using ObjectsComparer;
 using Xml.Schema.Linq.Extensions;
+using Xml.Schema.Linq.Tests.Extensions;
 
 namespace Xml.Schema.Linq.Tests
 {
@@ -115,7 +118,7 @@ namespace Xml.Schema.Linq.Tests
         private void CheckTypeOfVoidExpressionsInGeneratedCode(IEnumerable<string> xsdsToProcess, int randomSubset = -1)
         {
             var allProcessableXsds =
-                Utilities.ResolvePossibleFileAndFolderPathsToProcessableSchemas(AllTestFiles, xsdsToProcess);
+                AllTestFiles.ResolvePossibleFileAndFolderPathsToProcessableSchemas(xsdsToProcess);
 
             var failingXsds = new List<(IFileInfo file, Exception exception)>(allProcessableXsds.Capacity);
 
@@ -274,29 +277,16 @@ namespace Xml.Schema.Linq.Tests
             var atomXsdFileInfo = new MockFileInfo(AllTestFiles, AtomXsdFilePath);
 
             var tree = Utilities.GenerateSyntaxTree(atomXsdFileInfo, AllTestFiles);
-            var root = tree.GetNamespaceRoot();
+            var ns = tree.GetNamespaceRoot();
 
-            TestContext.CurrentContext.DumpDebugOutputToFile(debugStrings: new [] { root.ToFullString() });
+            var fullString = ns.ToFullString();
+            TestContext.CurrentContext.DumpDebugOutputToFile(debugStrings: new [] { fullString });
 
-            var allProperties = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().ToList();
-            var allFields = root.DescendantNodes().OfType<FieldDeclarationSyntax>().ToList();
+            var allProperties = ns.GetAllPropertyDescendantAttributes();
+            var allFields = ns.GetAllFieldDescendantAttributes();
 
-            var allFieldsWithAttrs = (from field in allFields
-                                      where field.AttributeLists.Select(al => al.Attributes).Any()
-                                      select field).ToList();
-
-            var allPropertiesWithAttrs = (from p in allProperties
-                                          where p.AttributeLists.Select(al => al.Attributes).Any()
-                                          select p).ToList();
-
-            var allPropsAttributes = allPropertiesWithAttrs
-                .SelectMany(p => p.AttributeLists.SelectMany(al => al.Attributes)).ToList();
-
-            var allFieldAttributes = allFieldsWithAttrs
-                .SelectMany(f => f.AttributeLists.SelectMany(al => al.Attributes)).ToList();
-
-            var allPropAttributeNames = allPropsAttributes.Select(a => ((IdentifierNameSyntax) a.Name).Identifier.Text).ToList();
-            var allFieldAttributeNames = allFieldAttributes.Select(a => ((IdentifierNameSyntax) a.Name).Identifier.Text).ToList();
+            var allPropAttributeNames = allProperties.Select(a => ((IdentifierNameSyntax) a.Name).Identifier.Text).ToList();
+            var allFieldAttributeNames = allFields.Select(a => ((IdentifierNameSyntax) a.Name).Identifier.Text).ToList();
 
             Assert.IsNotEmpty(allPropAttributeNames);
             Assert.IsNotEmpty(allFieldAttributeNames);
@@ -305,7 +295,7 @@ namespace Xml.Schema.Linq.Tests
             var actualAllPropAttributeNamesCount = allPropAttributeNames.Count;
             Assert.IsTrue(actualAllPropAttributeNamesCount == expectedAllPropAttributeNamesCount);
 
-            const int expectedAllFieldAttributeNamesCount = 234;
+            const int expectedAllFieldAttributeNamesCount = 235;
             var actualAllFieldAttributeNamesCount = allFieldAttributeNames.Count;
             Assert.IsTrue(actualAllFieldAttributeNamesCount == expectedAllFieldAttributeNamesCount);
 
@@ -315,6 +305,165 @@ namespace Xml.Schema.Linq.Tests
             var allNamesAreTheSame = propAndFieldAttrNames.All(s => s == debuggerBrowsableName || s == editorBrowsableName);
 
             Assert.IsTrue(allNamesAreTheSame);
+        }
+
+        [Test]
+        public void CompareGeneratedAttributesCurrentAndSavedCSharpSourceCode()
+        {
+            var atomXsdFileInfo = new MockFileInfo(AllTestFiles, AtomXsdFilePath);
+
+            CSharpSyntaxTree tree1 = Utilities.GenerateSyntaxTree(atomXsdFileInfo, AllTestFiles);
+            NamespaceDeclarationSyntax ns1 = tree1.GetNamespaceRoot().CleanForComparison();
+
+            CSharpSyntaxTree tree2 = new FileInfo("..\\..\\..\\..\\GeneratedSchemaLibraries\\Atom\\atom.xsd.cs").ToSyntaxTree();
+            NamespaceDeclarationSyntax ns2 = tree2.GetNamespaceRoot().CleanForComparison();
+            
+            Assert.IsEmpty(ns1.CompareProperties(ns2));
+            Assert.IsEmpty(ns1.CompareFields(ns2));
+
+            List<AttributeSyntax> allFields1 = ns1.GetAllFieldDescendantAttributes();
+            List<AttributeSyntax> allFields2 = ns2.GetAllFieldDescendantAttributes();
+
+            Assert.AreEqual(allFields1.Count, allFields2.Count);
+
+            var fieldWithAttrString1 = allFields1.Select(f => f.Parent.Parent.ToString().Trim()).ToList();
+            var fieldWithAttrString2 = allFields2.Select(f => f.Parent.Parent.ToString().Trim()).ToList();
+
+            var stringComparison = fieldWithAttrString1.CompareObjects(fieldWithAttrString2);
+
+            Assert.IsEmpty(stringComparison);
+        }
+
+        [Test]
+        public void CompareFieldSummariesForEntireNamespaces()
+        {
+            var atomXsdFileInfo = new MockFileInfo(AllTestFiles, AtomXsdFilePath);
+
+            var tree1 = Utilities.GenerateSyntaxTree(atomXsdFileInfo, AllTestFiles);
+            var ns1 = tree1.GetNamespaceRoot();
+            ns1 = ns1.CleanForComparison();
+
+            var existingCodeFile = "atom.xsd.cs";
+            var existingAtomCode = Environment.CurrentDirectory
+                .AscendToFolder("GeneratedSchemaLibraries").DescendToFolder("Atom").FindFileRecursively(existingCodeFile);
+
+            var tree2 = existingAtomCode.ToSyntaxTree();
+            var ns2 = tree2.GetNamespaceRoot();
+            ns2 = ns2.CleanForComparison();
+            
+            {
+                var directoryName = Path.GetDirectoryName(existingAtomCode.FullName);
+                var fileName = Path.GetFileNameWithoutExtension(existingAtomCode.FullName);
+                // save the new one for comparison; file ext is csv to prevent hot reload from triggering during test debug
+                var comparisonFilePath = Path.Combine(directoryName!, fileName + ".2.csx");
+                ns1.WriteToFile(comparisonFilePath);
+                ns2.WriteToFile(existingAtomCode.FullName);
+            }
+            
+            Assert.IsEmpty(ns1.CompareProperties(ns2));
+            Assert.IsEmpty(ns1.CompareFields(ns2));
+
+            var allFieldAttrs1 = ns1.GetAllFieldDescendantAttributes();
+            var allFieldAttrs2 = ns2.GetAllFieldDescendantAttributes();
+
+            var attrsAndFields1 = SummariseFields(allFieldAttrs1);
+            var attrsAndFields2 = SummariseFields(allFieldAttrs2);
+
+            var groupedFields1 = (from af in attrsAndFields1
+                group af by af.FieldName into afGroup
+                orderby afGroup.Key
+                select afGroup).ToList();
+            
+            var groupedFields2 = (from af in attrsAndFields2
+                group af by af.FieldName into afGroup
+                orderby afGroup.Key
+                select afGroup).ToList();
+
+            var fieldCounts1 = groupedFields1.Select(g => new { g.Key, Count = g.Count() }).ToList();
+            var fieldCounts2 = groupedFields2.Select(g => new { g.Key, Count = g.Count() }).ToList();
+
+            var regrouped1 = from af in groupedFields1.Where(g => g.Key == "DebuggerBrowsable")
+                    .SelectMany(g => g)
+                group af by af.FieldName into faf
+                select faf;
+
+            var regrouped2 = from af in groupedFields1.Where(g => g.Key == "DebuggerBrowsable")
+                    .SelectMany(g => g)
+                group af by af.FieldName into faf
+                select faf;
+
+            var compareCounts = fieldCounts1.CompareObjects(fieldCounts2);
+            // test failure, but we need intelligent error messages at this point
+            if (compareCounts.Any()) {
+                var sb = new StringBuilder();
+                foreach (var compare in compareCounts) {
+                    var memberIndex = compare.MemberPath.StripToDigits().ParseInt();
+                    var theMember1 = fieldCounts1[memberIndex!.Value];
+                    var theMember2 = fieldCounts2[memberIndex!.Value!];
+                    Assert.AreEqual(theMember2.Key, theMember1.Key);
+                    sb.AppendLine($"FieldName: {theMember1.Key}, Count1: {theMember1.Count}, Count2: {theMember2.Count}");
+                }
+                
+                Assert.Fail("Mismatch between field counts! " + Environment.NewLine + sb + Environment.NewLine);
+            }
+            
+            Assert.IsEmpty(compareCounts);
+
+            var compareFields = groupedFields1.CompareObjects(groupedFields2);
+
+            Assert.IsEmpty(compareFields);
+            
+            return;
+
+            static List<(string Attr, string FieldName)> SummariseFields(List<AttributeSyntax> attrs)
+            {
+                return attrs.Select(a =>
+                    (
+                        Attr: a.Name.ToFullString(), 
+                        FieldName: ((a.Parent as AttributeListSyntax)?.Parent as FieldDeclarationSyntax)?.Declaration.Variables.Select(v => v.Identifier.ValueText).Single()
+                    )
+                ).OrderByDescending(e => e.FieldName)
+                .ToList();
+            }
+        }
+
+        [Test]
+        public void ValidatorSubTypesExist()
+        {
+            var atomXsdFileInfo = new MockFileInfo(AllTestFiles, AtomXsdFilePath);
+
+            var newTree = Utilities.GenerateSyntaxTree(atomXsdFileInfo, AllTestFiles);
+            var newNs = newTree.GetNamespaceRoot();
+            newNs = newNs.CleanForComparison();
+
+            var existingCodeFile = "atom.xsd.cs";
+            var existingAtomCsFilePath = new DirectoryInfo(Environment.CurrentDirectory)
+                .AscendToFolder("GeneratedSchemaLibraries").DescendToFolder("Atom").FindFileRecursively(existingCodeFile);
+
+            Assert.True(existingAtomCsFilePath.Exists, $"Can't find existing code generated for file: '{existingCodeFile}'");
+
+            var treeFromExisting = existingAtomCsFilePath.ToSyntaxTree();
+            var existingNs = treeFromExisting.GetNamespaceRoot();
+            existingNs = existingNs.CleanForComparison();
+
+            var newTypes = newNs.Members.OfType<TypeDeclarationSyntax>().ToList();
+            var newSubTypes = (from t1 in newTypes
+                from tt1 in t1.Members.OfType<TypeDeclarationSyntax>()
+                select tt1).ToList();
+
+            var existingTypes = existingNs.Members.OfType<TypeDeclarationSyntax>().ToList();
+            var existingSubtypes = (from t2 in existingTypes
+                from tt2 in t2.Members.OfType<TypeDeclarationSyntax>()
+                select tt2).ToList();
+
+            Assert.AreEqual(newTypes.Count, existingTypes.Count,
+                $"Type count mismatch between new code and existing code! New count: {newTypes.Count}, Existing count: {existingTypes.Count}");
+
+            Assert.IsNotEmpty(newSubTypes);
+            Assert.IsNotNull(newSubTypes.SingleOrDefault());
+
+            Assert.IsNotEmpty(existingSubtypes);
+            Assert.IsNotNull(existingSubtypes.SingleOrDefault());
         }
     }
 }

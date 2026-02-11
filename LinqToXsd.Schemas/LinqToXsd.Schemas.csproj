@@ -24,9 +24,9 @@
   <ItemGroup>
     <Compile Remove="Schemas\Pubmed\collections.xsd.cs" />
   </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework) == 'net6.0'">
+  <ItemGroup Condition="$(TargetFramework) != 'netstandard2.0'">
     <ProjectReference Include="..\XObjectsCore\XObjectsCore.csproj">
-      <SetTargetFramework>TargetFramework=net6.0</SetTargetFramework>
+      <SetTargetFramework>TargetFramework=netstandard2.0</SetTargetFramework>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup Condition="$(TargetFramework) == 'netstandard2.0'">
@@ -35,11 +35,34 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Remove="XsdFeatureTests\Elements\ElementsTests.xsd" />
+    <None Remove="XsdFeatureTests\Elements\ElementsWithComplexTypes.xsd" />
+    <None Remove="XsdFeatureTests\Elements\ElementsWithTypes.xsd" />
+    <None Remove="XsdFeatureTests\Elements\ElementsWithTypesSimpleDerived.xsd" />
+    <None Remove="XsdFeatureTests\SimpleTypeUnion\StuDateAndTime.xsd" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="XsdFeatureTests\Elements\ElementsTests.xsd" />
+    <EmbeddedResource Include="XsdFeatureTests\Elements\ElementsWithComplexTypes.xsd" />
+    <EmbeddedResource Include="XsdFeatureTests\Elements\ElementsWithTypes.xsd" />
+    <EmbeddedResource Include="XsdFeatureTests\Elements\ElementsWithTypesSimpleDerived.xsd" />
+    <EmbeddedResource Include="XsdFeatureTests\ImportsXmlNamespace\ImportsXmlAttributes.xsd.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="XsdFeatureTests\ImportsXmlNamespace\xml.xsd">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="XsdFeatureTests\SimpleTypeUnion\StuDateAndTime.xsd" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="PolySharp" Version="1.15.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <SetTargetFramework>TargetFramework=netstandard2.0</SetTargetFramework>
     </PackageReference>
-    <PackageReference Include="Portable.System.DateTimeOnly" Version="7.0.1" Condition="$(TargetFramework) == 'netstandard2.0'" />
+	  <PackageReference Include="Portable.System.DateTimeOnly" Version="9.0.1" Condition="$(TargetFramework) == 'netstandard2.0'">
+      <SetTargetFramework>TargetFramework=netstandard2.0</SetTargetFramework>
+	  </PackageReference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\GeneratedSchemaLibraries\1707_ISYBAU_XML_Schema\1707_ISYBAU_XML_Schema.csproj" />
@@ -211,6 +234,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Schemas\XSD\xml.xsd">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="XsdFeatureTests\ImportsXmlNamespace\ImportsXmlAttributes.xsd">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

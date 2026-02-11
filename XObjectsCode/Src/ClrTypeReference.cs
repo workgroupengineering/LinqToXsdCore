@@ -1,9 +1,12 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Xml.Linq;
 using System.Xml.Schema;
 using Xml.Schema.Linq.Extensions;
+using XObjects;
 
 namespace Xml.Schema.Linq.CodeGen;
 
@@ -11,8 +14,8 @@ public partial class ClrTypeReference
 {
     string typeName;
     string typeNs;
-    string clrName;
-    string clrFullTypeName;
+    string? clrName;
+    string? clrFullTypeName;
 
     string typeCodeString;
     XmlSchemaObject schemaObject;
@@ -25,12 +28,19 @@ public partial class ClrTypeReference
         this.typeName = name;
         this.typeNs = ns;
         this.schemaObject = schemaObject;
+        this.typeRefOrigin = SchemaOrigin.Fragment;
 
-        XmlSchemaType schemaType = schemaObject as XmlSchemaType;
+        SetTypeRefFlags(anonymousType, setVariety);
+    }
+
+    private void SetTypeRefFlags(bool anonymousType, bool setVariety)
+    {
+        Debug.Assert(schemaObject != null);
+        XmlSchemaType schemaType = this.schemaObject as XmlSchemaType;
         if (schemaType == null)
         {
-            XmlSchemaElement elem = schemaObject as XmlSchemaElement;
-            typeRefFlags |= ClrTypeRefFlags.IsElementRef;
+            XmlSchemaElement elem = this.schemaObject as XmlSchemaElement;
+            this.typeRefFlags |= ClrTypeRefFlags.IsElementRef;
             schemaType = elem.ElementSchemaType;
         }
 
@@ -56,6 +66,7 @@ public partial class ClrTypeReference
             }
 
             typeRefFlags |= ClrTypeRefFlags.IsSimpleType;
+            Debug.Assert(datatype != null, nameof(datatype) + " != null");
             typeCodeString = datatype.TypeCodeString();
             if (datatype.ValueType.IsValueType)
             {
@@ -71,8 +82,6 @@ public partial class ClrTypeReference
         {
             typeRefFlags |= ClrTypeRefFlags.IsLocalType;
         }
-
-        this.typeRefOrigin = SchemaOrigin.Fragment;
     }
 
     private void SetVariety(XmlSchemaDatatype datatype)
@@ -103,7 +112,7 @@ public partial class ClrTypeReference
         }
     }
 
-    public string ClrName
+    public string? ClrName
     {
         get { return clrName; }
     }
@@ -206,8 +215,7 @@ public partial class ClrTypeReference
 
     public string LocalSuffix => this.IsEnum ? Constants.LocalEnumSuffix : Constants.LocalTypeSuffix;
 
-    public string GetSimpleTypeClrTypeDefName(string parentTypeClrNs,
-        Dictionary<XmlSchemaObject, string> nameMappings)
+    public string GetSimpleTypeClrTypeDefName(string parentTypeClrNs, Dictionary<XmlSchemaObject, string> nameMappings)
     {
         Debug.Assert(this.IsSimpleType);
         string clrTypeName = null;
@@ -240,6 +248,12 @@ public partial class ClrTypeReference
         {
             //Namespace of the property's type is different than the namespace of the enclosing CLR Type
             clrTypeName = "global::" + typeNs + "." + clrTypeName;
+        }
+
+        // unfortunately this doesn't handle simple type unions
+        if (clrTypeName.IsEmpty() && key is XmlSchemaSimpleType { Content: XmlSchemaSimpleTypeUnion union }) 
+        {
+            clrTypeName = typeof(object).FullName;
         }
 
         return clrTypeName;
@@ -288,7 +302,7 @@ public partial class ClrTypeReference
         return clrTypeName;
     }
 
-    internal string UpdateClrFullEnumTypeName(ClrPropertyInfo property, string currentTypeScope, string currentNamespaceScope)
+    internal string? UpdateClrFullEnumTypeName(ClrPropertyInfo property, string currentTypeScope, string currentNamespaceScope)
     {
         Debug.Assert(this.IsEnum);
 
@@ -301,9 +315,10 @@ public partial class ClrTypeReference
         else if (this.clrFullTypeName.IsEmpty())
         {
             //If the enum type is local (nested), use its parent type scope
-            this.clrFullTypeName = property.TypeReference.IsLocalType
-                ? $"{currentTypeScope}.{this.ClrName ?? this.Name}"
-                : $"{theClrNamespace}.{this.ClrName ?? this.Name}";
+            if (property.TypeReference.IsLocalType)
+                this.clrFullTypeName = $"{currentTypeScope}.{this.ClrName ?? this.Name}";
+            else
+                this.clrFullTypeName = $"{theClrNamespace}.{this.ClrName ?? this.Name}";
         }
         return this.clrFullTypeName;
 
@@ -316,5 +331,80 @@ public partial class ClrTypeReference
             }
             return this.Namespace;
         }
+    }
+
+    public bool IsForAnonymousXsdType
+    {
+        get {
+            return (schemaObject as XmlSchemaType)?.IsAnonymous() == true;
+        }
+    }
+
+    /// <summary>
+    /// When this type reference is for a <see cref="XmlSchemaSimpleTypeUnion"/>, this property returns all the member types.
+    /// </summary>
+    public XmlSchemaObject[]? UnionMemberTypes
+    {
+        get {
+            Debug.Assert(typeRefFlags.HasFlag(ClrTypeRefFlags.IsUnion));
+
+            if (schemaObject is XmlSchemaSimpleType { Content: XmlSchemaSimpleTypeUnion union }) {
+                XmlSchemaSimpleType[] xmlSchemaSimpleTypes = union.GetUnionMemberTypes();
+                return xmlSchemaSimpleTypes.Cast<XmlSchemaObject>().ToArray();
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// When this type reference is for a <see cref="XmlSchemaChoice"/> particle, this property returns all the possible choices.
+    /// </summary>
+    public XmlSchemaObject[]? ChoiceMemberTypes
+    {
+        get {
+            if (schemaObject is XmlSchemaComplexType type) {
+                if (type.ContentModel is XmlSchemaComplexContent complexContent) {
+                    if (complexContent.Content is XmlSchemaComplexContentRestriction complexContentRestriction) {
+                        if (complexContentRestriction.Particle is XmlSchemaChoice choice) {
+                            return choice.Items.Cast<XmlSchemaObject>().ToArray();
+                        }
+                    }
+
+                    if (complexContent.Content is XmlSchemaComplexContentExtension complexContentExtension) {
+                        if (complexContentExtension.Particle is XmlSchemaChoice choice) {
+                            return choice.Items.Cast<XmlSchemaObject>().ToArray();
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+    }
+
+    public XDocument ToXDoc()
+    {
+        return new XDocument(
+            new XElement(nameof(ClrTypeReference),
+                new XElement(nameof(Origin), Origin),
+                new XElement(nameof(Name), Name),
+                new XElement(nameof(ClrName), ClrName),
+                new XElement(nameof(Namespace), Namespace),
+                new XElement(nameof(ClrFullTypeName), ClrFullTypeName),
+                new XElement(nameof(TypeCodeString), TypeCodeString),
+                new XElement(nameof(IsValueType), IsValueType),
+                new XElement(nameof(IsLocalType), IsLocalType),
+                new XElement(nameof(IsSimpleType), IsSimpleType),
+                new XElement(nameof(Validate), Validate),
+                new XElement(nameof(IsTypeRef), IsTypeRef),
+                new XElement(nameof(IsSchemaList), IsSchemaList),
+                new XElement(nameof(IsUnion), IsUnion),
+                new XElement(nameof(IsEnum), IsEnum),
+                new XElement(nameof(IsAnyType), IsAnyType),
+                new XElement(nameof(IsNamedComplexType), IsNamedComplexType),
+                new XElement(nameof(SchemaObject), SchemaObject?.ToString()),
+                new XElement(nameof(LocalSuffix), LocalSuffix)
+            ));
     }
 }

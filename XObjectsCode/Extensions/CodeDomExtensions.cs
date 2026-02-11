@@ -1,4 +1,5 @@
-﻿using Microsoft.CSharp;
+﻿#nullable enable
+using Microsoft.CSharp;
 
 using OneOf;
 
@@ -10,7 +11,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-
+using System.Reflection;
 using Xml.Schema.Linq.CodeGen;
 
 namespace Xml.Schema.Linq.Extensions
@@ -58,7 +59,7 @@ namespace Xml.Schema.Linq.Extensions
 
             return string.Equals(clrTypeReference.ClrFullTypeName, codeTypeReference.BaseType);
         }
-        
+
         private static string ToCodeStringInternal(
             this OneOf<CodeCompileUnit, CodeExpression, CodeTypeMember, CodeNamespace, CodeStatement, CodeTypeDeclaration> codeDomObjects,
             CodeGeneratorOptions options = null)
@@ -145,7 +146,195 @@ namespace Xml.Schema.Linq.Extensions
         /// <returns></returns>
         public static StringWriter ToStringWriter(this CodeCompileUnit ccu) => ToStringWriterInternal(ccu);
         public static string ToCodeString(this CodeCompileUnit ccu) => ToCodeStringInternal(ccu);
-        
+
+        public static string ToCodeString(this CompilerError ce) => ce.ToString();
+
+        public static string ToCodeString(this CodeAttributeArgument ce) => ce.ToCodeStringInternal();
+        private static string ToCodeStringInternal(this CodeAttributeArgument caa, CodeGeneratorOptions? options = null)
+        {
+            return $"{caa.Name} = {caa.Value.ToCodeString()}";
+        }
+
+        public static string ToCodeString(this CodeAttributeDeclaration ce) => ce.ToCodeStringInternal();
+        private static string ToCodeStringInternal(this CodeAttributeDeclaration caa, CodeGeneratorOptions? options = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public static string ToCodeString(this CodeCatchClause ce) => ce.ToCodeStringInternal();
+        private static string ToCodeStringInternal(this CodeCatchClause caa, CodeGeneratorOptions? options = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public static string ToCodeString(this CodeDirective ce) => ce.ToCodeStringInternal();
+        private static string ToCodeStringInternal(this CodeDirective caa, CodeGeneratorOptions? options = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public static string ToCodeString(this CodeTypeParameter ce) => ce.ToCodeStringInternal();
+        private static string ToCodeStringInternal(this CodeTypeParameter caa, CodeGeneratorOptions? options = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public static string ToCodeString(this CodeTypeReference ce) => ce.ToCodeStringInternal();
+        private static string ToCodeStringInternal(this CodeTypeReference caa, CodeGeneratorOptions? options = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        internal static string ToCodeStringFromCollections(this CollectionBase collectionBase)
+        {
+            string codeString = collectionBase switch {
+                CompilerErrorCollection compilererrorcollection => compilererrorcollection.ToCodeString(),
+                CodeAttributeArgumentCollection codeattributeargumentcollection => codeattributeargumentcollection.ToCodeString(),
+                CodeAttributeDeclarationCollection codeattributedeclarationcollection => codeattributedeclarationcollection.ToCodeString(),
+                CodeCatchClauseCollection codecatchclausecollection => codecatchclausecollection.ToCodeString(),
+                CodeCommentStatementCollection codecommentstatementcollection => codecommentstatementcollection.ToCodeString(),
+                CodeDirectiveCollection codedirectivecollection => codedirectivecollection.ToCodeString(),
+                CodeExpressionCollection codeexpressioncollection => codeexpressioncollection.ToCodeString(),
+                CodeNamespaceCollection codenamespacecollection => codenamespacecollection.ToCodeString(),
+                CodeParameterDeclarationExpressionCollection codeparameterdeclarationexpressioncollection => codeparameterdeclarationexpressioncollection.ToCodeString(),
+                CodeStatementCollection codestatementcollection => codestatementcollection.ToCodeString(),
+                CodeTypeDeclarationCollection codetypedeclarationcollection => codetypedeclarationcollection.ToCodeString(),
+                CodeTypeMemberCollection codetypemembercollection => codetypemembercollection.ToCodeString(),
+                CodeTypeParameterCollection codetypeparametercollection => codetypeparametercollection.ToCodeString(),
+                CodeTypeReferenceCollection codetypereferencecollection => codetypereferencecollection.ToCodeString(),
+                _ => throw new NotSupportedException("Only CodeDOM collections supported")
+            };
+
+            return codeString;
+        }
+
+        public static string ToCodeString(this CompilerErrorCollection compilererrorcollection)
+        {
+            var str = "";
+            foreach (CompilerError element in compilererrorcollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+        public static string ToCodeString(this CodeAttributeArgumentCollection codeattributeargumentcollection)
+        {
+            var str = "";
+            foreach (CodeAttributeArgument element in codeattributeargumentcollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+        public static string ToCodeString(this CodeAttributeDeclarationCollection codeattributedeclarationcollection)
+        {
+            var str = "";
+            foreach (CodeAttributeDeclaration element in codeattributedeclarationcollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+        public static string ToCodeString(this CodeCatchClauseCollection codecatchclausecollection)
+        {
+            var str = "";
+            foreach (CodeCatchClause element in codecatchclausecollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+        public static string ToCodeString(this CodeCommentStatementCollection codecommentstatementcollection)
+        {
+            var str = "";
+            foreach (CodeCommentStatement element in codecommentstatementcollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+        public static string ToCodeString(this CodeDirectiveCollection codedirectivecollection)
+        {
+            var str = "";
+            foreach (CodeDirective element in codedirectivecollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+        public static string ToCodeString(this CodeExpressionCollection codeexpressioncollection)
+        {
+            var str = "";
+            foreach (CodeExpression element in codeexpressioncollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+        public static string ToCodeString(this CodeNamespaceCollection codenamespacecollection)
+        {
+            var str = "";
+            foreach (CodeNamespace element in codenamespacecollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+        public static string ToCodeString(this CodeParameterDeclarationExpressionCollection codeparameterdeclarationexpressioncollection)
+        {
+            var str = "";
+            foreach (CodeParameterDeclarationExpression element in codeparameterdeclarationexpressioncollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+        public static string ToCodeString(this CodeStatementCollection codestatementcollection)
+        {
+            var str = "";
+            foreach (CodeStatement element in codestatementcollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+        public static string ToCodeString(this CodeTypeDeclarationCollection codetypedeclarationcollection)
+        {
+            var str = "";
+            foreach (CodeTypeDeclaration element in codetypedeclarationcollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+        public static string ToCodeString(this CodeTypeMemberCollection codetypemembercollection)
+        {
+            var str = "";
+            foreach (CodeTypeMember element in codetypemembercollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+        public static string ToCodeString(this CodeTypeParameterCollection codetypeparametercollection)
+        {
+            var str = "";
+            foreach (CodeTypeParameter element in codetypeparametercollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+        public static string ToCodeString(this CodeTypeReferenceCollection codetypereferencecollection)
+        {
+            var str = "";
+            foreach (CodeTypeReference element in codetypereferencecollection) {
+                str += element.ToCodeString() + "\n";
+            }
+
+            return str;
+        }
+
         /// <summary>
         /// Creates individual <see cref="StringWriter"/>s for each <see cref="CodeTypeDeclaration"/> in each
         /// <see cref="CodeNamespace"/> in the <paramref name="current"/> <see cref="CodeCompileUnit"/>.
@@ -449,6 +638,190 @@ namespace Xml.Schema.Linq.Extensions
                     return typeDecl;
                 }
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// Adds a new <see cref="CodeTypeDeclaration"/> to the current namespace and also retain a reference to the parent <see cref="CodeNamespace"/> in the given
+        /// <paramref name="type"/>. This is set in the <see cref="CodeObject.UserData"/> dictionary; can be set with <see cref="SetParent{TCodeObject}"/>
+        /// and retrieved with <see cref="GetParent{TCodeObject}"/>.
+        /// </summary>
+        /// <param name="codeNs"></param>
+        /// <param name="type"></param>
+        public static void AddTypeWithParentNamespace(this CodeNamespace codeNs, CodeTypeDeclaration type)
+        {
+            codeNs.Types.Add(type);
+            type.SetParent(codeNs);
+        }
+
+        public static List<CodeTypeDeclaration> FlattenAllNestedTypesRecursively(this CodeTypeDeclaration type, List<CodeTypeDeclaration>? typesList = null)
+        {
+            typesList ??= new List<CodeTypeDeclaration>();
+            List<CodeTypeDeclaration> nestedTypes = type.Members.OfType<CodeTypeDeclaration>().ToList();
+            if (nestedTypes.Count > 0) {
+                typesList.AddRange(nestedTypes);
+                foreach (var nestedType in nestedTypes) {
+                    nestedType.FlattenAllNestedTypesRecursively(typesList);
+                }
+            }
+
+            return typesList;
+        }
+
+        /// <summary>
+        /// Searches for a nested type with the specified name within the current <see cref="CodeTypeDeclaration"/> 
+        /// and all its nested types recursively. Uses the LINQ method <see cref="Enumerable.FirstOrDefault{TSource}(IEnumerable{TSource})"/> to
+        /// return the possible match.
+        /// </summary>
+        /// <param name="type">The current type.</param>
+        /// <param name="predicate">A searching predicate</param>
+        /// <param name="orderByPredicate">Pass another predicate to order the results if you anticipate <paramref name="predicate"/> will return more than one
+        /// result.</param>
+        /// <returns>
+        /// The <see cref="CodeTypeMember"/> representing the nested type with the specified name, 
+        /// or <c>null</c> if no such type is found.
+        /// </returns>
+        public static CodeTypeMember? SearchForMemberRecursively(this CodeTypeDeclaration type, Func<CodeTypeMember, bool> predicate,
+            Func<CodeTypeMember, bool>? orderByPredicate = null)
+        {
+            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+
+            CodeTypeMember? thePossibleTypeMember = null;
+            IEnumerable<CodeTypeMember> candidates = type.Members.Cast<CodeTypeMember>().Where(predicate);
+            if (orderByPredicate is not null) {
+                candidates = candidates.OrderByDescending(orderByPredicate);
+            }
+            thePossibleTypeMember = candidates.FirstOrDefault();
+
+            if (thePossibleTypeMember is null) {
+                IEnumerable<CodeTypeDeclaration> nestedTypes = type.Members.OfType<CodeTypeDeclaration>();
+                foreach (var nestedType in nestedTypes) {
+                    thePossibleTypeMember = nestedType.SearchForMemberRecursively(predicate, orderByPredicate);
+                    if (thePossibleTypeMember is not null) break;
+                }
+            }
+
+            return thePossibleTypeMember;
+        }
+
+        /// <summary>
+        /// At the namespace level, searches for a <see cref="CodeTypeMember"/> to match the given <paramref name="predicate"/> within all
+        /// child <see cref="CodeTypeDeclaration"/>s.
+        /// For each type, this invokes <see cref="SearchForMemberRecursively"/>
+        /// </summary>
+        /// <param name="ns"></param>
+        /// <param name="predicate"></param>
+        /// <param name="orderByPredicate"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        public static CodeTypeMember? SearchForMemberRecursively(this CodeNamespace ns, Func<CodeTypeMember, bool> predicate,
+            Func<CodeTypeMember, bool>? orderByPredicate = null)
+        {
+            if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+
+            foreach (var type in ns.Types.Cast<CodeTypeDeclaration>()) {
+                var possibleTypeMember = type.SearchForMemberRecursively(predicate, orderByPredicate);
+                if (possibleTypeMember is not null) return possibleTypeMember;
+            }
+
+            return null;
+        }
+
+        extension<TCodeObject>(CodeObject co) where TCodeObject: CodeObject
+        {
+            /// <summary>
+            /// This is a strongly-typed convenience method to allow setting a parent for the current <see cref="CodeObject"/>.
+            /// For things like <see cref="CodeTypeMember"/>s, you can use this to retain a reference
+            /// to the parent <see cref="CodeNamespace"/> for instance.
+            /// </summary>
+            /// <param name="parent"></param>
+            /// <exception cref="ArgumentNullException"></exception>
+            public void SetParent(TCodeObject parent) 
+            {
+                co.UserData["Parent"] = parent ?? throw new ArgumentNullException(nameof(parent));
+            }
+
+            /// <summary>
+            /// This is a strongly-typed convenience method to allow getting a parent for the current <see cref="CodeObject"/>.
+            /// For things like <see cref="CodeTypeMember"/>s, you can use this to retain a reference
+            /// to the parent <see cref="CodeNamespace"/> for instance.
+            /// </summary>
+            /// <exception cref="ArgumentNullException"></exception>
+            public TCodeObject? GetParent() 
+            {
+                return co.UserData["Parent"] as TCodeObject;
+            }
+
+            public bool HasParent()
+            {
+                return co.UserData["Parent"] is TCodeObject;
+            }
+        }
+
+        extension(CodeTypeDeclaration type)
+        {
+            /// <summary>
+            /// Retain a reference to the parent <see cref="CodeNamespace"/> this type is meant to be enclosed in.
+            /// </summary>
+            public CodeNamespace? ParentNamespace
+            {
+                get => type.GetParent<CodeNamespace>();
+                set => type.SetParent(value!);
+            }
+
+            public IEnumerable<CodeMemberProperty> ChildProperties
+            {
+                get {
+                    return type.Members.OfType<CodeMemberProperty>();
+                }
+            }
+
+            public IEnumerable<CodeTypeDeclaration> ChildTypes
+            {
+                get {
+                    return type.Members.OfType<CodeTypeDeclaration>();
+                }
+            }
+            
+            public IEnumerable<CodeTypeDeclaration> ChildEnumDeclarations
+            {
+                get {
+                    return type.Members.OfType<CodeTypeDeclaration>().Where(e => e.IsEnum);
+                }
+            }
+            
+            public IEnumerable<CodeTypeDeclaration> ChildClassDeclarations
+            {
+                get {
+                    return type.Members.OfType<CodeTypeDeclaration>().Where(e => e.IsClass);
+                }
+            }
+
+            public void ChangeVisibility(TypeAttributes visibility)
+            {
+                if (!visibility.HasVisibilityMask()) {
+                    throw new InvalidOperationException("Requires the use of an enum value that affects type visibility!");
+                }
+
+                type.TypeAttributes = (type.TypeAttributes & ~TypeAttributes.VisibilityMask) | visibility;
+            }
+        }
+
+        public static bool HasVisibilityMask(this TypeAttributes ta)
+        {
+            TypeAttributes visibility = ta & TypeAttributes.VisibilityMask;
+            switch (visibility) {
+                case TypeAttributes.NotPublic:
+                case TypeAttributes.Public:
+                case TypeAttributes.NestedPublic:
+                case TypeAttributes.NestedPrivate:
+                case TypeAttributes.NestedFamANDAssem:
+                case TypeAttributes.NestedAssembly:
+                case TypeAttributes.NestedFamily:
+                case TypeAttributes.NestedFamORAssem:
+                    return true;
+
+                default: return false;
             }
         }
     }

@@ -121,14 +121,53 @@ namespace Xml.Schema.Linq.CodeGen
         public static string MakeValidIdentifier(string identifierName)
         {
             identifierName = CodeIdentifier.MakeValid(identifierName);
-            if (isKeyword(identifierName))
+            if (IsKeyword(identifierName))
                 return "@" + identifierName;
             return identifierName;
         }
 
-        public static bool isKeyword(string identifier)
+        public static bool IsKeyword(string identifier)
         {
             return keywords.Contains(identifier);
+        }
+
+        public static string ExpandSymbolToFullWord(char ch)
+        {
+            return ch switch {
+                '!' => "ExclamationMark",
+                '?' => "QuestionMark",
+                '.' => "Period",
+                ',' => "Comma",
+                ';' => "Semicolon",
+                ':' => "Colon",
+                '\'' => "Apostrophe",
+                '"' => "QuotationMark",
+                '(' => "LeftParenthesis",
+                ')' => "RightParenthesis",
+                '[' => "LeftBracket",
+                ']' => "RightBracket",
+                '{' => "LeftBrace",
+                '}' => "RightBrace",
+                '-' => "Hyphen",
+                '_' => "Underscore",
+                '+' => "Plus",
+                '=' => "Equals",
+                '*' => "Asterisk",
+                '/' => "Slash",
+                '\\' => "Backslash",
+                '&' => "Ampersand",
+                '%' => "Percent",
+                '$' => "DollarSign",
+                '#' => "Hash",
+                '@' => "AtSymbol",
+                '^' => "Caret",
+                '~' => "Tilde",
+                '`' => "Backtick",
+                '<' => "LessThan",
+                '>' => "GreaterThan",
+                '|' => "Pipe",
+                _ => throw new InvalidOperationException($"__UnknownSymbol__PLEASE_IMPLEMENT_IN_{nameof(ExpandSymbolToFullWord)}_METHOD")
+            };
         }
     }
 

@@ -5,8 +5,10 @@ using System.Xml;
 using System.Xml.Schema;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Xml.Schema.Linq.Extensions;
 using XObjects;
@@ -824,6 +826,30 @@ namespace Xml.Schema.Linq.CodeGen
                     ClrBasePropertyInfo propertyInfo = BuildPropertyForAttribute(derivedAttribute, false, baseAttribute != null, typeInfo);
                     BuildAnnotationInformation(propertyInfo, derivedAttribute, false, false);
                     typeInfo.AddMember(propertyInfo);
+
+                    // this if block handles local, anonymous union types defined for attributes.
+                    // We need to generate a named type for them in order to validate the value in the setter code,
+                    // and we want to generate it as a nested type under the parent type (for the element) that owns the attribute.
+                    if (propertyInfo is ClrPropertyInfo {
+                            TypeReference: {
+                                IsForAnonymousXsdType: true, IsUnion: true, IsSimpleType: true, IsLocalType: true
+                            }
+                        } clrPropInfo)
+                    {
+                        // This is an internal validation class for simple anonymous union types (they have no name in XSD, but to validate union
+                        // values in the C# setter code, we need something named).
+                        var unionValidationType = ClrSimpleTypeInfo.CreateSimpleTypeUnionAnonymousTypeInfo
+                        (
+                            simpleType: (XmlSchemaSimpleType)clrPropInfo.TypeReference.SchemaObject,
+                            // because this is a nested class, this does not need namespace qualification (or even reference to the parent class)
+                            clrTypeNamespace: null
+                        );
+                        unionValidationType.Annotations.Add(new ClrAnnotation() {
+                            Section = "summary",
+                            Text = "This is an internal validation class."
+                        });
+                        typeInfo.NestedTypes.Add(unionValidationType);
+                    }
                 }
             }
         }
@@ -951,7 +977,7 @@ namespace Xml.Schema.Linq.CodeGen
 
             SchemaOrigin typeRefOrigin = SchemaOrigin.Fragment;
             bool isTypeRef = false;
-            //Anonymous types have a non null XmlSchemaElement.SchemaType value
+            //Anonymous element types have a non null XmlSchemaElement.SchemaType value
             bool isAnonymous = elem.SchemaType != null;
             XmlSchemaObject schemaObject = schemaType;
 
@@ -1020,12 +1046,9 @@ namespace Xml.Schema.Linq.CodeGen
 
             SchemaOrigin typeRefOrigin = SchemaOrigin.Fragment;
             bool isTypeRef = false;
-            bool isAnonymous = attribute.SchemaType != null || (!attribute.AttributeSchemaType.IsGlobal() &&
-                                                                !attribute.AttributeSchemaType.IsBuiltInSimpleType());
+            bool isAnonymous = attribute.IsOfAnonymousType();
 
-            XmlSchemaObject schemaObject = schemaType;
-
-            ClrTypeReference typeRef = BuildTypeReference(schemaObject, schemaTypeName, isAnonymous, true);
+            ClrTypeReference typeRef = BuildTypeReference(schemaType, schemaTypeName, isAnonymous, true);
             typeRef.Origin = typeRefOrigin;
             typeRef.IsTypeRef = isTypeRef;
 
@@ -1040,6 +1063,10 @@ namespace Xml.Schema.Linq.CodeGen
             if (attribute.DefinesInlineEnum() && isAnonymous) {
                 // does not work when the containing type does not have the enum definition already defined, returns string values like '.Enum' which does not compile
                 // UpdateTypeRefForInlineAnonymousEnum(attribute, containingType, typeRef, propertyInfo);
+            }
+
+            if (attribute.IsOfAnonymousType() && attribute.AttributeSchemaType!.IsOrHasUnion()) {
+                
             }
 
             SetFixedDefaultValue(attribute, propertyInfo);
@@ -1075,14 +1102,22 @@ namespace Xml.Schema.Linq.CodeGen
             return property;
         }
 
-        private ClrTypeReference BuildTypeReference(XmlSchemaObject schemaObject, XmlQualifiedName typeQName,
-            bool anonymousType, bool setVariety)
+        private ClrTypeReference BuildTypeReference(XmlSchemaObject schemaObject, XmlQualifiedName typeQName, bool anonymousType, bool setVariety)
         {
             string typeName = typeQName.Name;
             string typeNs = typeQName.Namespace;
             if (!anonymousType)
             {
                 typeNs = configSettings.GetClrNamespace(typeNs);
+            }
+            else {
+                if (schemaObject is XmlSchemaSimpleType type) {
+                    Debug.Assert(typeQName.IsEmpty);
+
+                    if (type.Content is XmlSchemaSimpleTypeUnion union) {
+                        typeName = union.GenerateAdHocNameForSimpleUnionType();
+                    }
+                }
             }
 
             ClrTypeReference typeRef = new ClrTypeReference(typeName, typeNs, schemaObject, anonymousType, setVariety);
